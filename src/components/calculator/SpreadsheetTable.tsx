@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, FocusEvent, MouseEvent, ReactNode } from "react";
+import { createPortal } from "react-dom";
 import * as XLSX from "xlsx-js-style";
 import { FormulaTooltip } from "@/components/calculator/FormulaTooltip";
 import type { CalculatedCell, CalculatorInputs } from "@/types/calculator";
@@ -19,6 +20,11 @@ type WorkbookCell = XLSX.CellObject & {
 };
 
 type WorkbookSheet = XLSX.WorkSheet & Record<string, WorkbookCell>;
+
+type FloatingTooltip = {
+  cell: CalculatedCell;
+  style: CSSProperties;
+};
 
 const COLUMNS: GridColumn[] = ["A", "B", "C", "D", "E", "F", "I", "J"];
 
@@ -262,11 +268,15 @@ function CalculatedValue({
   cell,
   copied,
   onCopy,
+  onHover,
+  onHoverEnd,
   onOpenMobileSheet,
 }: {
   cell: CalculatedCell | undefined;
   copied: boolean;
   onCopy: (value: string, cell: string) => void;
+  onHover: (cell: CalculatedCell, element: HTMLElement) => void;
+  onHoverEnd: () => void;
   onOpenMobileSheet: (cell: CalculatedCell) => void;
 }) {
   if (!cell) {
@@ -277,25 +287,27 @@ function CalculatedValue({
     <div className="group relative">
       <button
         type="button"
+        onBlur={onHoverEnd}
+        onFocus={(event: FocusEvent<HTMLButtonElement>) => onHover(cell, event.currentTarget)}
+        onMouseEnter={(event: MouseEvent<HTMLButtonElement>) => onHover(cell, event.currentTarget)}
+        onMouseLeave={onHoverEnd}
         onClick={() => {
           onCopy(cell.rawValue, cell.cell);
           onOpenMobileSheet(cell);
         }}
-        className="cell-flash w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-right transition hover:border-sky-400 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+        className="cell-flash w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-right transition hover:-translate-y-0.5 hover:border-sky-500 hover:bg-sky-50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
         aria-label={`Copy exact result for ${cell.cell}`}
       >
         <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{cell.cell}</p>
         <p className="mt-0.5 break-all text-sm font-semibold text-slate-900">{copied ? "Copied" : cell.displayValue}</p>
       </button>
-      <div className="hidden group-hover:block group-focus-within:block">
-        <FormulaTooltip cell={cell} />
-      </div>
     </div>
   );
 }
 
 export function SpreadsheetTable({ cells, inputs, onOpenMobileSheet }: SpreadsheetTableProps) {
   const [copiedCell, setCopiedCell] = useState<string | null>(null);
+  const [floatingTooltip, setFloatingTooltip] = useState<FloatingTooltip | null>(null);
   const canDownload = useMemo(() => Object.keys(cells).length > 0, [cells]);
 
   const handleCopy = (value: string, cell: string) => {
@@ -315,11 +327,44 @@ export function SpreadsheetTable({ cells, inputs, onOpenMobileSheet }: Spreadshe
     <InputValue cell={cell} value={inputs[cell]} onCopy={handleCopy} copied={copiedCell === cell} />
   );
 
+  const showTooltip = (cell: CalculatedCell, element: HTMLElement) => {
+    const rect = element.getBoundingClientRect();
+    const tooltipWidth = 320;
+    const tooltipHeight = cell.valueType === "money" ? 260 : 224;
+    const gap = 12;
+    const viewportPadding = 12;
+    const maxLeft = window.innerWidth - tooltipWidth - viewportPadding;
+    const maxTop = window.innerHeight - tooltipHeight - viewportPadding;
+    const spaceBelow = window.innerHeight - rect.bottom - viewportPadding;
+    const spaceAbove = rect.top - viewportPadding;
+    const rightSideLeft = rect.right + gap;
+    const leftSideLeft = rect.left - tooltipWidth - gap;
+    const canFitRight = rightSideLeft + tooltipWidth <= window.innerWidth - viewportPadding;
+    const preferredLeft = canFitRight ? rightSideLeft : leftSideLeft;
+    const preferredTop =
+      spaceBelow < tooltipHeight && spaceAbove > spaceBelow
+        ? rect.bottom - tooltipHeight
+        : rect.top;
+    const left = Math.max(viewportPadding, Math.min(preferredLeft, maxLeft));
+    const top = Math.max(viewportPadding, Math.min(preferredTop, maxTop));
+
+    setFloatingTooltip({
+      cell,
+      style: {
+        left,
+        position: "fixed",
+        top,
+      },
+    });
+  };
+
   const calculatedCell = (cellId: string) => (
     <CalculatedValue
       cell={cells[cellId]}
       copied={copiedCell === cellId}
       onCopy={handleCopy}
+      onHover={showTooltip}
+      onHoverEnd={() => setFloatingTooltip(null)}
       onOpenMobileSheet={onOpenMobileSheet}
     />
   );
@@ -479,6 +524,10 @@ export function SpreadsheetTable({ cells, inputs, onOpenMobileSheet }: Spreadshe
           </tbody>
         </table>
       </div>
+
+      {floatingTooltip && typeof document !== "undefined"
+        ? createPortal(<FormulaTooltip cell={floatingTooltip.cell} style={floatingTooltip.style} />, document.body)
+        : null}
     </section>
   );
 }

@@ -1,16 +1,19 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import type { CalculatedCell } from "@/types/calculator";
 
 type FormulaTooltipProps = {
   cell: CalculatedCell;
+  style?: CSSProperties;
 };
 
-export function FormulaTooltip({ cell }: FormulaTooltipProps) {
+export function FormulaTooltip({ cell, style }: FormulaTooltipProps) {
   return (
     <div
       role="tooltip"
-      className="pointer-events-none absolute right-0 z-30 mt-2 hidden w-80 max-w-[90vw] rounded-xl border border-slate-200 bg-white p-3 text-left shadow-2xl md:block"
+      style={style}
+      className="pointer-events-none z-[1000] hidden max-h-[calc(100vh-24px)] w-80 max-w-[calc(100vw-24px)] overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 text-left shadow-2xl md:block"
     >
       <p className="text-xs font-semibold text-slate-500">{cell.cell}</p>
       <p className="text-sm font-semibold text-slate-900">{cell.label}</p>
