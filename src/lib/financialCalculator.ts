@@ -100,6 +100,19 @@ function cloneValue(value: DecimalValue): DecimalValue {
   };
 }
 
+function zeroValue(scale: number): DecimalValue {
+  const decimal = new Decimal(0);
+  return {
+    decimal,
+    scale,
+    raw: decimalToRaw(decimal, scale),
+  };
+}
+
+function floorAtZero(value: DecimalValue): DecimalValue {
+  return value.decimal.isNegative() ? zeroValue(value.scale) : value;
+}
+
 function makeCell(
   cell: string,
   value: DecimalValue,
@@ -169,9 +182,13 @@ export function calculateFinancialSheet(inputs: CalculatorInputs): CalculatorRes
   const I2 = multiplyValues(A2, A9);
   const J2 = cloneValue(F5);
 
-  const E9 = cloneValue(E2);
-  const E10 = cloneValue(E3);
-  const E11 = subtractValues(D9, addValues(E9, E10));
+  const previousTierLimit = addValues(D2, D3);
+  const E9 = D9.decimal.lessThan(D2.decimal) ? cloneValue(D9) : cloneValue(E2);
+  const E10Base = D9.decimal.lessThan(previousTierLimit.decimal)
+    ? subtractValues(D9, D2)
+    : cloneValue(E3);
+  const E10 = floorAtZero(E10Base);
+  const E11 = floorAtZero(subtractValues(D9, addValues(E9, E10)));
 
   const F9 = multiplyValues(E9, B2);
   const F10 = multiplyValues(E10, B3);
@@ -197,9 +214,13 @@ export function calculateFinancialSheet(inputs: CalculatorInputs): CalculatorRes
     F5: makeCell("F5", F5, `F5 = ${F2.raw} + ${F3.raw} + ${F4.raw}`),
     I2: makeCell("I2", I2, `I2 = ${A2.raw} × ${A9.raw}`),
     J2: makeCell("J2", J2, `J2 = ${F5.raw}`),
-    E9: makeCell("E9", E9, `E9 = ${E2.raw}`),
-    E10: makeCell("E10", E10, `E10 = ${E3.raw}`),
-    E11: makeCell("E11", E11, `E11 = ${D9.raw} - (${E9.raw} + ${E10.raw})`),
+    E9: makeCell("E9", E9, `E9 = ${D9.raw} < ${D2.raw} ? ${D9.raw} : ${E2.raw}`),
+    E10: makeCell(
+      "E10",
+      E10,
+      `E10 = max(0, ${D9.raw} < ${previousTierLimit.raw} ? ${D9.raw} - ${D2.raw} : ${E3.raw})`,
+    ),
+    E11: makeCell("E11", E11, `E11 = max(0, ${D9.raw} - (${E9.raw} + ${E10.raw}))`),
     F9: makeCell("F9", F9, `F9 = ${E9.raw} × ${B2.raw}`),
     F10: makeCell("F10", F10, `F10 = ${E10.raw} × ${B3.raw}`),
     F11: makeCell("F11", F11, `F11 = ${E11.raw} × ${B4.raw}`),
@@ -215,10 +236,6 @@ export function calculateFinancialSheet(inputs: CalculatorInputs): CalculatorRes
   if (E4.decimal.isNegative()) {
     errors.push(`Invalid formula E4 = A9 - (E2 + E3): result is negative (${E4.raw})`);
   }
-  if (E11.decimal.isNegative()) {
-    errors.push(`Invalid formula E11 = D9 - (E9 + E10): result is negative (${E11.raw})`);
-  }
-
   const warnings: string[] = [];
   if (D9.decimal.greaterThan(A9.decimal)) {
     warnings.push("Warning: D9 is greater than A9");

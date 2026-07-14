@@ -103,9 +103,19 @@ describe("financialCalculator validations and determinism", () => {
     expect(result.errors.some((error) => error.includes("D4 = A9 - (D2 + D3)"))).toBe(true);
   });
 
-  it("returns E11 negative validation error", () => {
+  it("uses D9 for E9 and floors E10 and E11 at zero when D9 is below D2", () => {
     const result = calculateFinancialSheet({ A2: "1", C2: "10", A9: "50", D9: "1" });
-    expect(result.errors.some((error) => error.includes("E11 = D9 - (E9 + E10)"))).toBe(true);
+    expect(result.cells.E9.rawValue).toBe("1");
+    expect(result.cells.E10.rawValue).toBe("0.00");
+    expect(result.cells.E11.rawValue).toBe("0.00");
+    expect(result.errors.some((error) => error.includes("E11 = D9 - (E9 + E10)"))).toBe(false);
+  });
+
+  it("sets E10 to D9 minus D2 when D9 is below D2 plus D3", () => {
+    const result = calculateFinancialSheet({ A2: "1", C2: "10", A9: "50", D9: "13" });
+    expect(result.cells.E9.rawValue).toBe("12.50");
+    expect(result.cells.E10.rawValue).toBe("0.50");
+    expect(result.cells.E11.rawValue).toBe("0.00");
   });
 
   it("returns warning when D9 is greater than A9", () => {

@@ -155,9 +155,9 @@ function makeStyledWorkbook(cells: Record<string, CalculatedCell>, inputs: Calcu
   setWorkbookCell(sheet, "J2", makeFormulaCell("F5", cells.J2));
   setWorkbookCell(sheet, "A9", makeValueCell(inputs.A9));
   setWorkbookCell(sheet, "D9", makeValueCell(inputs.D9));
-  setWorkbookCell(sheet, "E9", makeFormulaCell("E2", cells.E9));
-  setWorkbookCell(sheet, "E10", makeFormulaCell("E3", cells.E10));
-  setWorkbookCell(sheet, "E11", makeFormulaCell("D9-(E9+E10)", cells.E11));
+  setWorkbookCell(sheet, "E9", makeFormulaCell("IF(D9<D2,D9,E2)", cells.E9));
+  setWorkbookCell(sheet, "E10", makeFormulaCell("MAX(0,IF(D9<(D2+D3),D9-D2,E3))", cells.E10));
+  setWorkbookCell(sheet, "E11", makeFormulaCell("MAX(0,D9-(E9+E10))", cells.E11));
   setWorkbookCell(sheet, "F9", makeFormulaCell("E9*B2", cells.F9));
   setWorkbookCell(sheet, "F10", makeFormulaCell("E10*B3", cells.F10));
   setWorkbookCell(sheet, "F11", makeFormulaCell("E11*B4", cells.F11));
